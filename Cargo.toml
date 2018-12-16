@@ -6,7 +6,7 @@ repository = "https://github.com/rust-console/rrt0"
 description = "Simple cross-platform runtime / startup (like crt0)"
 license = "MIT"
 categories = ["embedded"]
-keywords = ["crt0", "boot", "bootstrap", "runtime", "startup", "nintendo", "n64"]
+keywords = ["crt0", "runtime", "startup", "nintendo", "n64"]
 edition = "2018"
 
 [dependencies]
