@@ -1,4 +1,3 @@
-#![feature(cfg_target_vendor)]
 #![feature(global_asm)]
 #![feature(lang_items)]
 #![warn(rust_2018_idioms)]
