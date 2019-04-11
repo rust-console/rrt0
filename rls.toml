@@ -1,2 +1,2 @@
-# Disable checking the test target to wrokaround https://github.com/rust-lang/rls/issues/904
+# Disable checking the test target to workaround https://github.com/rust-lang/rls/issues/904
 all_targets = false
