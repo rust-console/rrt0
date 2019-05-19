@@ -41,6 +41,7 @@ pub fn panic(_info: &PanicInfo<'_>) -> ! {
     loop {}
 }
 
+/// Error handler personality language item (current no-op, to satisfy clippy).
 #[cfg_attr(not(test), lang = "eh_personality")]
 #[no_mangle]
 pub extern fn rust_eh_personality() {}
