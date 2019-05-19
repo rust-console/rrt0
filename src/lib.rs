@@ -37,5 +37,10 @@ impl Termination for () {
 #[cfg_attr(not(test), panic_handler)]
 #[no_mangle]
 pub fn panic(_info: &PanicInfo<'_>) -> ! {
+    #[allow(clippy::empty_loop)]
     loop {}
 }
+
+#[cfg_attr(not(test), lang = "eh_personality")]
+#[no_mangle]
+pub extern fn rust_eh_personality() {}
