@@ -36,7 +36,7 @@ impl Termination for () {
 /// This function is called on panic.
 #[cfg_attr(not(test), panic_handler)]
 #[no_mangle]
-pub fn panic(_info: &PanicInfo<'_>) -> ! {
+fn panic(_info: &PanicInfo<'_>) -> ! {
     #[allow(clippy::empty_loop)]
     loop {}
 }
@@ -44,4 +44,4 @@ pub fn panic(_info: &PanicInfo<'_>) -> ! {
 /// Error handler personality language item (current no-op, to satisfy clippy).
 #[cfg_attr(not(test), lang = "eh_personality")]
 #[no_mangle]
-pub extern fn rust_eh_personality() {}
+extern fn rust_eh_personality() {}
