@@ -1,3 +1,4 @@
+#![feature(core_intrinsics)]
 #![feature(global_asm)]
 #![feature(lang_items)]
 #![warn(rust_2018_idioms)]
@@ -7,16 +8,17 @@
 mod math;
 mod platforms;
 
-use core::panic::PanicInfo;
 pub use crate::platforms::*;
+use core::panic::PanicInfo;
 
 /// This is the executable start function, which directly follows the entry point.
 #[cfg_attr(not(test), lang = "start")]
 #[cfg(not(test))]
-extern "C" fn start<T>(user_main: fn() -> T, _argc: isize, _argv: *const *const u8) -> isize
+extern "C" fn start<T>(user_main: *const (), _argc: isize, _argv: *const *const u8) -> isize
 where
     T: Termination,
 {
+    let user_main: fn() -> T = unsafe { core::mem::transmute(user_main) };
     user_main().report() as isize
 }
 
@@ -37,11 +39,10 @@ impl Termination for () {
 #[cfg_attr(not(test), panic_handler)]
 #[no_mangle]
 fn panic(_info: &PanicInfo<'_>) -> ! {
-    #[allow(clippy::empty_loop)]
-    loop {}
+    core::intrinsics::abort();
 }
 
 /// Error handler personality language item (current no-op, to satisfy clippy).
 #[cfg_attr(not(test), lang = "eh_personality")]
 #[no_mangle]
-extern fn rust_eh_personality() {}
+extern "C" fn rust_eh_personality() {}

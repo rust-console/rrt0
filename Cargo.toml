@@ -1,6 +1,6 @@
 [package]
 name = "rrt0"
-version = "0.1.3"
+version = "0.2.0"
 authors = ["Jay Oster <jay@kodewerx.org>"]
 repository = "https://github.com/rust-console/rrt0"
 description = "Simple cross-platform runtime / startup (like crt0)"
@@ -11,4 +11,4 @@ keywords = ["crt0", "runtime", "startup", "nintendo", "n64"]
 edition = "2018"
 
 [dependencies]
-libm = "0.1"
+libm = "0.2"
