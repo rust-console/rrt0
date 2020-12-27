@@ -19,7 +19,8 @@
 
 _start:
     // Initialize stack
-    lw $t0, OS_MEM_SIZE
+    li $t0, OS_MEM_SIZE
+    lw $t0, 0($t0)
     li $t1, 0x7FFFFFF0
     addu $sp, $t0, $t1
 
@@ -46,7 +47,8 @@ _start:
 
     // Store the FS location for the OS
     la $t0, __rom_end
-    sw $t0, FS_START
+    li $t1, FS_START
+    sw $t0, 0($t1)
 
     // So if we want to get fancy, we can load a second stage here.
     // The second stage should contain an ELF parser and TLB Initialization.
