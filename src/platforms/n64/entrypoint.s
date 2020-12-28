@@ -50,17 +50,6 @@ _start:
     li $t1, FS_START
     sw $t0, 0($t1)
 
-    // So if we want to get fancy, we can load a second stage here.
-    // The second stage should contain an ELF parser and TLB Initialization.
-    // The ELF (kernel image) should be loaded into virtual memory by the second
-    // stage, and its entry point executed.
-
     // Jump to Rust
     jal main
-    nop
-
-    // Panic!
-    // We can't do much here aside from looping
-1:
-    j 1b
     nop
