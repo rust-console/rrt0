@@ -1,0 +1,7 @@
+# Default deny
+*
+
+# Allow sources
+!Cargo.*
+!src/
+!rust-toolchain

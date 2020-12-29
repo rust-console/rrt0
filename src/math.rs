@@ -1,3 +1,7 @@
+//! Math intrinsics reexported from [`libm`].
+//!
+//! [`libm`]: https://crates.io/crates/libm
+
 #![allow(dead_code)]
 
 macro_rules! no_mangle {

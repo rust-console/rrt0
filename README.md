@@ -10,14 +10,8 @@ Simple cross-platform runtime / startup (like crt0).
 
 * Create a sane, platform-specific runtime environment
   * Set the stack pointer
-  * Clear the `.bss` and `.sbss` sections (uninitialized static data)
+  * Clear the `.bss` section (uninitialized static data)
   * Minimal hardware initialization (e.g. configuring the FPU)
   * Panic handler
-
-## Usage
-
-The `panic` function must be imported with `pub use`, or you will get missing-symbol errors at link time.
-
-```rust
-pub use rrt0::panic;
-```
+* Provide basic I/O primitives
+  * `stdout` and `stderr` with configurable streams
