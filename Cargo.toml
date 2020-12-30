@@ -10,14 +10,5 @@ categories = ["embedded"]
 keywords = ["crt0", "runtime", "startup", "nintendo", "n64"]
 edition = "2018"
 
-[profile.dev]
-panic = "abort"
-
-[profile.test]
-panic = "abort"
-
-[profile.release]
-panic = "abort"
-
 [dependencies]
 libm = "0.2"
