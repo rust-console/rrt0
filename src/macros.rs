@@ -32,7 +32,7 @@ macro_rules! print {
     ($($args:expr),+ $(,)?) => ({
         use core::fmt::write;
 
-        $crate::io::STDOUT.with_lock(|stream| write(stream(), format_args!($($args),+)).unwrap());
+        $crate::io::STDOUT.with_lock(|stream| write(stream, format_args!($($args),+)).unwrap());
     });
 }
 
@@ -58,7 +58,7 @@ macro_rules! eprint {
     ($($args:expr),+ $(,)?) => ({
         use core::fmt::write;
 
-        $crate::io::STDERR.with_lock(|stream| write(stream(), format_args!($($args),+)).unwrap());
+        $crate::io::STDERR.with_lock(|stream| write(stream, format_args!($($args),+)).unwrap());
     });
 }
 
@@ -76,121 +76,101 @@ macro_rules! eprintln {
 
 #[cfg(test)]
 mod test {
-    use spin::{Lazy, Mutex, MutexGuard};
+    use spin::{Lazy, Mutex};
 
-    static mut STDOUT: String = String::new();
-    static mut STDERR: String = String::new();
+    // This lock provides synchronized access to the inner `Stream` for testing
+    static MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
-    // This lock provides safe access to the inner String for testing
-    static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+    // Testing boilerplate.
+    macro_rules! io_test {
+        (let stdout=$stdout:expr; let stderr=$stderr:expr; $body:tt) => {
+            let guard = crate::macros::test::MUTEX.lock();
 
-    fn lock<'a>() -> MutexGuard<'a, ()> {
-        let guard = LOCK.lock();
+            // Setup the `STDOUT` and `STDERR` streams.
+            static mut STDOUT: String = String::new();
+            static mut STDERR: String = String::new();
 
-        unsafe {
-            STDOUT.clear();
-            STDERR.clear();
+            // SAFETY: These statics are only accessible to individual threads, not globally.
+            // Each `Stream` is only set while this thread holds a mutex.
+            unsafe { crate::io::STDOUT.set(&mut STDOUT); }
+            unsafe { crate::io::STDERR.set(&mut STDERR); }
 
-            crate::io::STDOUT.set_once(|| &mut STDOUT).ok();
-            crate::io::STDERR.set_once(|| &mut STDERR).ok();
-        }
+            $body
 
-        guard
+            // SAFETY: These statics are only accessible to individual threads, not globally.
+            // Each `Stream` is only read while this thread holds a mutex.
+            assert_eq!(unsafe { &STDOUT }, $stdout);
+            assert_eq!(unsafe { &STDERR }, $stderr);
+
+            drop(guard);
+        };
     }
 
     #[test]
     fn test_dbg() {
-        let guard = lock();
+        io_test! {
+            let stdout = "";
+            // XXX: Note the line number could change easily...
+            let stderr = &[
+                "[src/macros.rs:132] a = 1\n",
+                "[src/macros.rs:132] b = 2\n",
+                "[src/macros.rs:132] b = 2\n",
+                "[src/macros.rs:132] a = 1\n",
+                "[src/macros.rs:132] crate::dbg!(b, a,) = (\n",
+                "    2,\n",
+                "    1,\n",
+                ")\n",
+            ]
+            .iter()
+            .cloned()
+            .collect::<String>();
 
-        let a = 1;
-        let b = 2;
+            {
+                let a = 1;
+                let b = 2;
 
-        crate::dbg!(a, b, crate::dbg!(b, a,));
-
-        // XXX: Note the line number could change easily...
-        let expected = [
-            "[src/macros.rs:108] a = 1\n",
-            "[src/macros.rs:108] b = 2\n",
-            "[src/macros.rs:108] b = 2\n",
-            "[src/macros.rs:108] a = 1\n",
-            "[src/macros.rs:108] crate::dbg!(b, a,) = (\n",
-            "    2,\n",
-            "    1,\n",
-            ")\n",
-        ]
-        .iter()
-        .cloned()
-        .collect::<String>();
-
-        unsafe {
-            assert_eq!(&STDOUT, "");
-            assert_eq!(&STDERR, &expected);
-        }
-
-        drop(guard);
+                crate::dbg!(a, b, crate::dbg!(b, a,));
+            }
+        };
     }
 
     #[test]
     fn test_print() {
-        let guard = lock();
+        io_test! {
+            let stdout = "Foo bar!";
+            let stderr = "";
 
-        crate::print!("Foo bar!");
-        unsafe {
-            assert_eq!(&STDOUT, "Foo bar!");
-            assert_eq!(&STDERR, "");
-            STDOUT.clear();
-        }
-        crate::print!("Foo bar!",);
-        assert_eq!(unsafe { &STDOUT }, "Foo bar!");
-
-        drop(guard);
+            { crate::print!("Foo bar!"); }
+        };
     }
 
     #[test]
     fn test_println() {
-        let guard = lock();
+        io_test! {
+            let stdout = "Foo bar!\n";
+            let stderr = "";
 
-        crate::println!("Foo bar!");
-        unsafe {
-            assert_eq!(&STDOUT, "Foo bar!\n");
-            assert_eq!(&STDERR, "");
-            STDOUT.clear();
-        }
-        crate::println!("Foo bar!",);
-        assert_eq!(unsafe { &STDOUT }, "Foo bar!\n");
-
-        drop(guard);
+            { crate::println!("Foo bar!"); }
+        };
     }
 
     #[test]
     fn test_eprint() {
-        let guard = lock();
+        io_test! {
+            let stdout = "";
+            let stderr = "Foo bar!";
 
-        crate::eprint!("Foo bar!");
-        unsafe {
-            assert_eq!(&STDOUT, "");
-            assert_eq!(&STDERR, "Foo bar!");
-            STDERR.clear();
-        }
-        crate::eprint!("Foo bar!",);
-        assert_eq!(unsafe { &STDERR }, "Foo bar!");
-
-        drop(guard);
+            { crate::eprint!("Foo bar!"); }
+        };
     }
 
     #[test]
     fn test_eprintln() {
-        let guard = lock();
+        io_test! {
+            let stdout = "";
+            let stderr = "Foo bar!\n";
 
-        crate::eprintln!("Foo bar!");
-        unsafe {
-            assert_eq!(&STDOUT, "");
-            assert_eq!(&STDERR, "Foo bar!\n");
-            STDERR.clear();
-        }
-        crate::eprintln!("Foo bar!",);
-        assert_eq!(unsafe { &STDERR }, "Foo bar!\n");
-
-        drop(guard);
+            { crate::eprintln!("Foo bar!"); }
+        };
     }
 }

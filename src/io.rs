@@ -1,8 +1,8 @@
 //! A `no_std`-compatible I/O implementation.
 //!
 //! This module exports the [`STDOUT`] and [`STDERR`] statics which provide methods for
-//! initializing I/O. Once initialized, the [`print!`] and [`dbg!`] macros will write to the custom
-//! [`core::fmt::Write`] trait object (aka `Stream`) configured.
+//! initializing I/O. Once initialized, the [`println!`] and [`dbg!`] macros will write to the
+//! custom [`core::fmt::Write`] trait object (aka `Stream`) configured.
 //!
 //! Example:
 //!
@@ -12,7 +12,7 @@
 //! static mut STREAM: String = String::new();
 //!
 //! fn main() {
-//!     STDOUT.set_once(|| unsafe { &mut STREAM }).unwrap();
+//!     STDOUT.set(unsafe { &mut STREAM });
 //!
 //!     println!("Hello, world!");
 //! }
@@ -21,7 +21,8 @@
 //! # Safety
 //!
 //! Because the [`STDOUT`] and [`STDERR`] statics mutate statically allocated trait objects, it is
-//! unsound to interact with the `Stream` without carefully synchronizing access.
+//! unsound to interact with the `Stream` without carefully synchronizing access. Gaining exclusive
+//! (mutable) access to the `Stream` outside of the macros is always undefined behavior.
 //!
 //! The example above is sound because the [`println!`] family of macros can only reach the `Stream`
 //! through an internal `Mutex` and no attempt is made my the user code to access the contents of
@@ -46,7 +47,7 @@
 //! static MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 //!
 //! fn main() {
-//!     STDOUT.set_once(|| unsafe { &mut STREAM }).unwrap();
+//!     STDOUT.set(unsafe { &mut STREAM });
 //!
 //!     let mut threads = vec![];
 //!     for _ in 0..5 {
@@ -113,7 +114,18 @@
 //! [`println!`]: crate::println
 
 use core::fmt::Write;
-use spin::{Lazy, Mutex};
+use spin::Mutex;
+
+/// This is the output stream type.
+///
+/// Note that this is a trait object meaning it uses dynamic dispatch. This type was chosen because
+/// it is a fat pointer (can be statically allocated).
+type Stream = &'static mut dyn Write;
+
+/// Storage for `Stream` pointers.
+///
+/// This isolates the static mutable output Stream from the thread-safe `StdIo` wrapper.
+static mut STORAGE: [Option<Stream>; 2] = [None, None];
 
 /// Standard output.
 ///
@@ -121,7 +133,7 @@ use spin::{Lazy, Mutex};
 ///
 /// [`print!`]: crate::print
 /// [`println!`]: crate::println
-pub static STDOUT: Lazy<StdIo> = Lazy::new(StdIo::new);
+pub static STDOUT: StdIo = StdIo::new(0);
 
 /// Standard error.
 ///
@@ -130,9 +142,13 @@ pub static STDOUT: Lazy<StdIo> = Lazy::new(StdIo::new);
 /// [`dbg!`]: crate::dbg
 /// [`eprint!`]: crate::eprint
 /// [`eprintln!`]: crate::eprintln
-pub static STDERR: Lazy<StdIo> = Lazy::new(StdIo::new);
+pub static STDERR: StdIo = StdIo::new(1);
 
-type Stream = fn() -> &'static mut dyn Write;
+/// The Error type for I/O.
+///
+/// This type does not capture any context. The only method that can fail is setting the Stream
+/// handler.
+pub struct Error;
 
 /// Stream owner for I/O.
 ///
@@ -146,13 +162,14 @@ type Stream = fn() -> &'static mut dyn Write;
 ///
 /// [module-level documentation]: crate::io
 pub struct StdIo {
-    cell: Mutex<Option<Stream>>,
+    index: Mutex<usize>,
 }
 
 impl StdIo {
-    fn new() -> Self {
+    /// Privately construct a new `StdIo`.
+    const fn new(index: usize) -> Self {
         Self {
-            cell: Mutex::new(None),
+            index: Mutex::new(index),
         }
     }
 
@@ -160,30 +177,10 @@ impl StdIo {
     /// the `Stream`.
     #[doc(hidden)]
     pub fn with_lock(&self, f: impl Fn(Stream)) {
-        let guard = self.cell.lock();
+        let guard = self.index.lock();
 
-        if let Some(stream) = *guard {
+        if let Some(stream) = Self::get_stream(*guard) {
             f(stream);
-        }
-
-        drop(guard)
-    }
-
-    /// Set the `Stream` if one has not yet been configured, leaving any existing stream in place.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a `Stream` was previously configured. Will return the existing Stream reference
-    /// in the `Err` variant.
-    pub fn set_once(&self, stream: Stream) -> Result<(), Stream> {
-        let mut guard = self.cell.lock();
-
-        if let Some(existing) = *guard {
-            Err(existing)
-        } else {
-            *guard = Some(stream);
-
-            Ok(())
         }
     }
 
@@ -191,11 +188,23 @@ impl StdIo {
     ///
     /// This should be used with caution since it mutates global state. Using this method is sound
     /// but it may lead to unexpected results, particularly when concurrency is involved.
-    ///
-    /// For a more robust method of configuring the `Stream`, see [`StdIo::set_once`].
     pub fn set(&self, stream: Stream) {
-        let mut guard = self.cell.lock();
+        let guard = self.index.lock();
 
-        *guard = Some(stream);
+        Self::set_stream(*guard, stream);
+    }
+
+    /// Private static method that isolates unsafe `STORAGE` reads to a single location.
+    fn get_stream(index: usize) -> Option<&'static mut Stream> {
+        unsafe { STORAGE[index].as_mut() }
+    }
+
+    /// Private method that isolates unsafe `STORAGE` writes to a single location.
+    fn set_stream(index: usize, stream: Stream) {
+        // SAFETY: The `Stream` is guaranteed to be a valid pointer and a lock is held to
+        // prevent data races with `STORAGE`.
+        unsafe {
+            STORAGE[index] = Some(stream);
+        }
     }
 }

@@ -5,7 +5,7 @@ on:
   schedule:
     - cron: '0 0 * * 0'
 jobs:
-  checks:
+  check:
     name: Check
     runs-on: ubuntu-latest
     steps:
@@ -21,8 +21,38 @@ jobs:
         with:
           command: check
           args: --all
-  tests:
+  test:
     name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        sanitizer:
+          - thread
+          - memory
+          - address
+          - leak
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          components: rust-src
+          override: true
+      - name: Get Rust target
+        id: target
+        run: echo "::set-output name=value::$(basename $(dirname $(rustc --print target-libdir)))"
+      - name: Cargo test
+        uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: -Z sanitizer=${{ matrix.sanitizer }}
+          RUSTDOCFLAGS: -Z sanitizer=${{ matrix.sanitizer }}
+        with:
+          command: test
+          args: --all --all-features -Z build-std --target ${{ steps.target.outputs.value }}
+  miri:
+    name: Miri
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -31,21 +61,8 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          components: miri, rust-src
+          components: miri
           override: true
-      - name: Get Rust target
-        id: target
-        run: echo "::set-output name=value::$(basename $(dirname $(rustc --print target-libdir)))"
-      - name: Cargo test
-        uses: actions-rs/cargo@v1
-        env:
-          RUSTFLAGS: -Z sanitizer=thread
-          RUSTDOCFLAGS: -Z sanitizer=thread
-        with:
-          command: test
-          args: >-
-            --all --all-features -Z build-std
-            --target ${{ steps.target.outputs.value }}
       - name: Cargo miri setup
         uses: actions-rs/cargo@v1
         with:
@@ -56,8 +73,8 @@ jobs:
         with:
           command: miri
           args: test --all --all-features
-  lints:
-    name: Lints
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
