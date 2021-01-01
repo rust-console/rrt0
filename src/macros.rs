@@ -76,10 +76,20 @@ macro_rules! eprintln {
 
 #[cfg(test)]
 mod test {
+    use core::fmt::{self, Write};
     use spin::{Lazy, Mutex};
+    use std::sync::mpsc::{channel, Sender};
 
     // This lock provides synchronized access to the inner `Stream` for testing
     static MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+    struct TxStream(Sender<String>);
+
+    impl Write for TxStream {
+        fn write_str(&mut self, s: &str) -> fmt::Result {
+            self.0.send(s.to_string()).map_err(|_| fmt::Error)
+        }
+    }
 
     // Testing boilerplate.
     macro_rules! io_test {
@@ -87,20 +97,28 @@ mod test {
             let guard = crate::macros::test::MUTEX.lock();
 
             // Setup the `STDOUT` and `STDERR` streams.
-            static mut STDOUT: String = String::new();
-            static mut STDERR: String = String::new();
+            let (stdout_tx, stdout_rx) = channel();
+            let (stderr_tx, stderr_rx) = channel();
+            let mut stdout_box = Box::new(TxStream(stdout_tx));
+            let mut stderr_box = Box::new(TxStream(stderr_tx));
 
-            // SAFETY: These statics are only accessible to individual threads, not globally.
-            // Each `Stream` is only set while this thread holds a mutex.
-            unsafe { crate::io::STDOUT.set(&mut STDOUT); }
-            unsafe { crate::io::STDERR.set(&mut STDERR); }
+            // SAFETY: Both `Sender<T>` are leaked intentionally to create static references.
+            let stdout_tx = unsafe { Box::leak(Box::from_raw(&mut *stdout_box)) };
+            let stderr_tx = unsafe { Box::leak(Box::from_raw(&mut *stderr_box)) };
+
+            crate::io::STDOUT.set(stdout_tx);
+            crate::io::STDERR.set(stderr_tx);
 
             $body
 
-            // SAFETY: These statics are only accessible to individual threads, not globally.
-            // Each `Stream` is only read while this thread holds a mutex.
-            assert_eq!(unsafe { &STDOUT }, $stdout);
-            assert_eq!(unsafe { &STDERR }, $stderr);
+            // Assertions can be safely access Stream from the receiving end.
+            assert_eq!(&stdout_rx.try_iter().collect::<String>(), $stdout);
+            assert_eq!(&stderr_rx.try_iter().collect::<String>(), $stderr);
+
+            // Plug the leak. This is safe because `stdout_tx` and `stderr_tx` will not
+            // be used again.
+            drop(stdout_box);
+            drop(stderr_box);
 
             drop(guard);
         };
@@ -112,11 +130,11 @@ mod test {
             let stdout = "";
             // XXX: Note the line number could change easily...
             let stderr = &[
-                "[src/macros.rs:132] a = 1\n",
-                "[src/macros.rs:132] b = 2\n",
-                "[src/macros.rs:132] b = 2\n",
-                "[src/macros.rs:132] a = 1\n",
-                "[src/macros.rs:132] crate::dbg!(b, a,) = (\n",
+                "[src/macros.rs:150] a = 1\n",
+                "[src/macros.rs:150] b = 2\n",
+                "[src/macros.rs:150] b = 2\n",
+                "[src/macros.rs:150] a = 1\n",
+                "[src/macros.rs:150] crate::dbg!(b, a,) = (\n",
                 "    2,\n",
                 "    1,\n",
                 ")\n",
