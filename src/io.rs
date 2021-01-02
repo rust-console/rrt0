@@ -2,7 +2,7 @@
 //!
 //! This module exports the [`STDOUT`] and [`STDERR`] statics which provide methods for
 //! initializing I/O. Once initialized, the [`println!`] and [`dbg!`] macros will write to the
-//! custom [`core::fmt::Write`] trait object (aka `Stream`) configured.
+//! custom [`core::fmt::Write`] trait object (aka `Stream`) that is initialized.
 //!
 //! Example:
 //!
@@ -52,7 +52,7 @@ pub static STDERR: StdIo = StdIo::new();
 
 /// The Error type for I/O.
 ///
-/// This type does not capture any context. The only method that can fail is [`StdIo::set_once()`].
+/// This type does not capture any context. The only method that can fail is [`StdIo::set_once`].
 #[derive(Copy, Clone, Debug)]
 pub struct Error;
 
