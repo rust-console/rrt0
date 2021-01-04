@@ -82,14 +82,6 @@ impl MutDynTrait {
     }
 }
 
-// SAFETY: Access to `MutDynTrait` fields are carefully controlled with an internal `Mutex`. These
-// marker traits are necessary to prove to the compiler that it is safe to send `MutDynTrait` (which
-// contains raw pointers) across thread boundaries.
-//
-// A safe alternative would be `core::sync::atomic::AtomicPtr`, at the cost of unnecessary overhead.
-unsafe impl Send for MutDynTrait {}
-unsafe impl Sync for MutDynTrait {}
-
 /// The storage type for our statically allocated `Stream`.
 ///
 /// This holds a copy of the `T` type initialized with [`set`]/[`set_once`] and a pointer to it.
@@ -115,6 +107,14 @@ impl Storage {
 pub struct StdIo {
     mutex: Mutex<RefCell<Option<Storage>>>,
 }
+
+// SAFETY: Access to `StdIo` internals are only made through a `Mutex`. This marker trait is
+// necessary to prove to the compiler that it is safe to send `MutDynTrait` (which contains raw
+// pointers) across thread boundaries. We can prove that the data these raw pointers point to will
+// never be moved because `StdIo` is only exposed to the public API from statics.
+//
+// A safe alternative would be `core::sync::atomic::AtomicPtr`, at the cost of unnecessary overhead.
+unsafe impl Sync for StdIo {}
 
 impl StdIo {
     /// Privately construct a new `StdIo`.
