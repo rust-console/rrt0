@@ -153,7 +153,7 @@ mod test {
 
             if end > self.haystack.len() || !self.haystack.is_char_boundary(end) {
                 SearchStep::Done
-            } else if &self.haystack[start..end] == &needle[..] {
+            } else if self.haystack[start..end] == needle[..] {
                 let index = &self.haystack[end..]
                     .find(|ref c| !char::is_ascii_digit(c))
                     .unwrap_or(0);
@@ -170,7 +170,7 @@ mod test {
     fn matches(expected: &str, actual: &str) -> bool {
         let matcher = Wildcard::new(expected);
         let matches = actual.matches(matcher).collect::<Vec<_>>();
-        if matches.len() < 1 {
+        if matches.is_empty() {
             return false;
         }
 
