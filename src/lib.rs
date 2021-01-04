@@ -32,6 +32,7 @@
 #![feature(global_asm)]
 #![cfg_attr(target_vendor = "nintendo64", feature(lang_items))]
 #![feature(llvm_asm)]
+#![cfg_attr(test, feature(pattern))]
 #![warn(rust_2018_idioms)]
 #![cfg_attr(target_vendor = "nintendo64", no_std)]
 

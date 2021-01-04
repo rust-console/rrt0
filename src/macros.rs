@@ -77,6 +77,7 @@ macro_rules! eprintln {
 #[cfg(test)]
 mod test {
     use core::fmt::{self, Write};
+    use core::str::pattern::{Pattern, SearchStep, Searcher};
     use serial_test::serial;
     use std::sync::mpsc::{channel, Sender};
 
@@ -87,6 +88,95 @@ mod test {
         fn write_str(&mut self, s: &str) -> fmt::Result {
             self.0.send(s.to_string()).map_err(|_| fmt::Error)
         }
+    }
+
+    // Check whether the string matches the needle with simplified wildcard syntax.
+    //
+    // This allows a special `*` wildcard character to match numbers. It is much faster than
+    // a regular expression (which grinds `cargo miri test` to a near halt).
+    struct Wildcard<'a> {
+        needle: &'a str,
+    }
+
+    impl<'a> Wildcard<'a> {
+        fn new(needle: &'a str) -> Self {
+            Self { needle }
+        }
+    }
+
+    impl<'a> Pattern<'a> for Wildcard<'_> {
+        type Searcher = WildcardSearcher<'a>;
+
+        fn into_searcher(self, haystack: &'a str) -> Self::Searcher {
+            Self::Searcher::new(self.needle, haystack)
+        }
+    }
+
+    struct WildcardSearcher<'a> {
+        needle: Vec<String>,
+        needle_index: usize,
+        haystack: &'a str,
+        haystack_pos: usize,
+    }
+
+    impl<'a> WildcardSearcher<'a> {
+        fn new(needle: &str, haystack: &'a str) -> Self {
+            let needle = needle.split('*').map(|s| s.to_string()).collect::<Vec<_>>();
+
+            Self {
+                needle,
+                needle_index: 0,
+                haystack,
+                haystack_pos: 0,
+            }
+        }
+    }
+
+    // SAFETY: We only slice `self.haystack` on character boundaries.
+    unsafe impl<'a> Searcher<'a> for WildcardSearcher<'a> {
+        fn haystack(&self) -> &'a str {
+            self.haystack
+        }
+
+        fn next(&mut self) -> SearchStep {
+            if self.needle_index >= self.needle.len() {
+                std::dbg!("early Done");
+                return SearchStep::Done;
+            }
+
+            let needle = &self.needle[self.needle_index];
+            let start = self.haystack_pos;
+            let end = start + needle.len();
+
+            self.needle_index += 1;
+            self.haystack_pos = end;
+
+            if end > self.haystack.len() || !self.haystack.is_char_boundary(end) {
+                SearchStep::Done
+            } else if &self.haystack[start..end] == &needle[..] {
+                let index = &self.haystack[end..]
+                    .find(|ref c| !char::is_ascii_digit(c))
+                    .unwrap_or(0);
+
+                self.haystack_pos += index;
+
+                SearchStep::Match(start, end + index)
+            } else {
+                SearchStep::Done
+            }
+        }
+    }
+
+    fn matches(expected: &str, actual: &str) -> bool {
+        let matcher = Wildcard::new(expected);
+        let matches = actual.matches(matcher).collect::<Vec<_>>();
+        if matches.len() < 1 {
+            return false;
+        }
+
+        let tail = matches[matches.len() - 1];
+
+        actual.ends_with(tail)
     }
 
     // Testing boilerplate.
@@ -108,8 +198,8 @@ mod test {
             $body
 
             // Assertions can safely access Stream from the receiving end.
-            assert_eq!(&stdout_rx.try_iter().collect::<String>(), $stdout);
-            assert_eq!(&stderr_rx.try_iter().collect::<String>(), $stderr);
+            assert!(matches($stdout, &stdout_rx.try_iter().collect::<String>()));
+            assert!(matches($stderr, &stderr_rx.try_iter().collect::<String>()));
 
             // Plug the leak. This is safe because `stdout_tx` and `stderr_tx` will not
             // be used again.
@@ -123,13 +213,12 @@ mod test {
     fn test_dbg() {
         io_test! {
             let stdout = "";
-            // XXX: Note the line number could change easily...
             let stderr = &[
-                "[src/macros.rs:145] a = 1\n",
-                "[src/macros.rs:145] b = 2\n",
-                "[src/macros.rs:145] b = 2\n",
-                "[src/macros.rs:145] a = 1\n",
-                "[src/macros.rs:145] crate::dbg!(b, a,) = (\n",
+                "[src/macros.rs:*] a = 1\n",
+                "[src/macros.rs:*] b = 2\n",
+                "[src/macros.rs:*] b = 2\n",
+                "[src/macros.rs:*] a = 1\n",
+                "[src/macros.rs:*] crate::dbg!(b, a,) = (\n",
                 "    2,\n",
                 "    1,\n",
                 ")\n",
