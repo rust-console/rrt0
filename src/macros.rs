@@ -77,12 +77,10 @@ macro_rules! eprintln {
 #[cfg(test)]
 mod test {
     use core::fmt::{self, Write};
-    use spin::{Lazy, Mutex};
+    use serial_test::serial;
     use std::sync::mpsc::{channel, Sender};
 
-    // This lock provides synchronized access to the inner `Stream` for testing
-    static MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
-
+    // A stream type that can report all values printed to it.
     struct TxStream(Sender<String>);
 
     impl Write for TxStream {
@@ -94,8 +92,6 @@ mod test {
     // Testing boilerplate.
     macro_rules! io_test {
         (let stdout=$stdout:expr; let stderr=$stderr:expr; $body:tt) => {
-            let guard = crate::macros::test::MUTEX.lock();
-
             // Setup the `STDOUT` and `STDERR` streams.
             let (stdout_tx, stdout_rx) = channel();
             let (stderr_tx, stderr_rx) = channel();
@@ -111,7 +107,7 @@ mod test {
 
             $body
 
-            // Assertions can be safely access Stream from the receiving end.
+            // Assertions can safely access Stream from the receiving end.
             assert_eq!(&stdout_rx.try_iter().collect::<String>(), $stdout);
             assert_eq!(&stderr_rx.try_iter().collect::<String>(), $stderr);
 
@@ -119,22 +115,21 @@ mod test {
             // be used again.
             drop(stdout_box);
             drop(stderr_box);
-
-            drop(guard);
         };
     }
 
     #[test]
+    #[serial]
     fn test_dbg() {
         io_test! {
             let stdout = "";
             // XXX: Note the line number could change easily...
             let stderr = &[
-                "[src/macros.rs:150] a = 1\n",
-                "[src/macros.rs:150] b = 2\n",
-                "[src/macros.rs:150] b = 2\n",
-                "[src/macros.rs:150] a = 1\n",
-                "[src/macros.rs:150] crate::dbg!(b, a,) = (\n",
+                "[src/macros.rs:145] a = 1\n",
+                "[src/macros.rs:145] b = 2\n",
+                "[src/macros.rs:145] b = 2\n",
+                "[src/macros.rs:145] a = 1\n",
+                "[src/macros.rs:145] crate::dbg!(b, a,) = (\n",
                 "    2,\n",
                 "    1,\n",
                 ")\n",
@@ -153,6 +148,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     fn test_print() {
         io_test! {
             let stdout = "Foo bar!";
@@ -163,6 +159,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     fn test_println() {
         io_test! {
             let stdout = "Foo bar!\n";
@@ -173,6 +170,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     fn test_eprint() {
         io_test! {
             let stdout = "";
@@ -183,6 +181,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     fn test_eprintln() {
         io_test! {
             let stdout = "";
