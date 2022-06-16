@@ -1,7 +1,5 @@
 #![feature(core_intrinsics)]
-#![feature(global_asm)]
 #![feature(lang_items)]
-#![feature(llvm_asm)]
 #![warn(rust_2018_idioms)]
 #![allow(unused_attributes)]
 #![no_std]
@@ -36,11 +34,8 @@ impl Termination for () {}
 #[cfg_attr(not(test), panic_handler)]
 #[no_mangle]
 fn panic(_info: &PanicInfo<'_>) -> ! {
-    loop {
-        // A loop without side effects may be optimized away by LLVM. This issue can be avoided with
-        // a volatile no-op. See: https://github.com/rust-lang/rust/issues/28728
-        unsafe { llvm_asm!("" :::: "volatile") };
-    }
+    #[allow(clippy::empty_loop)]
+    loop {}
 }
 
 /// Error handler personality language item (current no-op, to satisfy clippy).
