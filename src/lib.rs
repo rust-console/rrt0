@@ -1,4 +1,5 @@
 #![feature(core_intrinsics)]
+#![feature(global_asm)]
 #![feature(lang_items)]
 #![warn(rust_2018_idioms)]
 #![allow(unused_attributes)]

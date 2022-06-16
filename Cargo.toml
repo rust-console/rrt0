@@ -1,6 +1,6 @@
 [package]
 name = "rrt0"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Jay Oster <jay@kodewerx.org>"]
 repository = "https://github.com/rust-console/rrt0"
 description = "Simple cross-platform runtime / startup (like crt0)"
