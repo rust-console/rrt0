@@ -10,7 +10,7 @@ Simple cross-platform runtime / startup (like crt0).
 
 * Create a sane, platform-specific runtime environment
   * Set the stack pointer
-  * Clear the `.bss` and `.sbss` sections (uninitialized static data)
+  * Clear the `.bss` section (uninitialized static data)
   * Minimal hardware initialization (e.g. configuring the FPU)
   * Panic handler
 
@@ -22,7 +22,7 @@ Here is a small template to get you started:
 #![no_main]
 #![no_std]
 
-pub use rrt0::prelude::*;
+use rrt0::prelude::*;
 
 #[no_mangle]
 fn main() -> ! {
