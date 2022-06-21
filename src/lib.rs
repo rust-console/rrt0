@@ -1,4 +1,3 @@
-#![cfg_attr(target_vendor = "nintendo64", feature(alloc_error_handler))]
 #![cfg_attr(target_vendor = "nintendo64", feature(asm_experimental_arch))]
 #![no_std]
 

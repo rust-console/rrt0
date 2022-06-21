@@ -1,3 +1,9 @@
+[workspace]
+members = [
+    "examples/n64lib",
+    "examples/hello-ipl3font",
+]
+
 [package]
 name = "rrt0"
 version = "0.4.0"
@@ -12,3 +18,9 @@ edition = "2018"
 
 [dependencies]
 libm = "0.2"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
