@@ -18,6 +18,7 @@ edition = "2018"
 
 [dependencies]
 libm = "0.2"
+no-stdout = "0.1"
 
 [profile.dev]
 panic = "abort"

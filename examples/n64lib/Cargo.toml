@@ -4,5 +4,10 @@ version = "0.1.0"
 authors = ["Jay Oster <jay@kodewerx.org>"]
 edition = "2021"
 
+[features]
+default = ["io-isviewer64"]
+io-isviewer64 = []
+
 [dependencies]
+no-stdout = "0.1"
 rrt0 = { path = "../../" }
