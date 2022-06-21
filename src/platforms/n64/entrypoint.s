@@ -16,6 +16,7 @@
 
 // Runtime environment pointers
 .set FS_START,              0x8000031C
+.set HEAP_START,            0x80000320
 
 _start:
     // Initialize stack
@@ -50,6 +51,15 @@ _start:
     li $t1, FS_START
     sw $t0, 0($t1)
 
+    // Store the heap start location for the OS
+    la $t0, __bss_end
+    li $t1, HEAP_START
+    sw $t0, 0($t1)
+
     // Jump to Rust
     jal main
+    nop
+
+    // Panic if main returns
+    j panic_main
     nop

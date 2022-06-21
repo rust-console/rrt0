@@ -16,8 +16,21 @@ Simple cross-platform runtime / startup (like crt0).
 
 ## Usage
 
-The `panic` function must be imported with `pub use`, or you will get missing-symbol errors at link time.
+Here is a small template to get you started:
 
 ```rust
-pub use rrt0::panic;
+#![no_main]
+#![no_std]
+
+pub use rrt0::prelude::*;
+
+#[no_mangle]
+fn main() -> ! {
+    // Do cool stuff, here!
+    loop {}
+}
 ```
+
+If `main` returns, the startup code will panic.
+
+See [examples](./examples) for more complete projects to get you started.
