@@ -5,4 +5,5 @@ authors = ["Jay Oster <jay@kodewerx.org>"]
 edition = "2021"
 
 [dependencies]
-n64lib = { path = "../n64lib" }
+arrayvec = { version = "0.7", default-features = false }
+n64lib = { path = "../n64lib", default-features = false }

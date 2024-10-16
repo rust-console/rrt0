@@ -48,7 +48,7 @@ pub fn draw_str(mut x: usize, mut y: usize, color: u16, string: &str) {
 
         // Special handling for space characters
         if ch == b' ' {
-            x += WIDTH;
+            x += WIDTH + KERNING;
             if x >= vi::WIDTH {
                 x = 0;
                 y += HEIGHT;
